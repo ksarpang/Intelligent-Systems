@@ -1,0 +1,353 @@
+import random
+import math
+from datetime import datetime
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+X_value = np.loadtxt('np_images.txt')
+Y_value = np.loadtxt('np_labels.txt')
+
+
+X_valuelength = 784       # This is the Length of X_value Arrays
+Y_valuelength = 10        # This is the Length of Y_value Arrays
+
+
+X_valueTrain = []
+Y_valueTrain = []
+Y_valueTrainValues = []
+
+X_valueTest = []
+Y_valueTest = []
+Y_valueTestValues = []
+X_valueTrainSize = 0
+# Here this part of code randomly chooses eighty percent of the data which will be used for training
+for j in range(len(X_value)):
+    if (random.randint(0, 100) < 80):
+        X_valueTrain.append(X_value[j])
+        Y_valueTrain.append(Y_value[j])
+        Cou_nt = 0
+        for j in Y_value[j]:
+            if j == 1:
+                Y_valueTrainValues.append(Cou_nt)
+            Cou_nt += 1
+        X_valueTrainSize += 1
+    else:
+        X_valueTest.append(X_value[j])
+        Y_valueTest.append(Y_value[j])
+        Cou_nt = 0
+        for j in Y_value[j]:
+            if j == 1:
+                Y_valueTestValues.append(Cou_nt)
+            Cou_nt += 1
+
+
+X_valueTrain = np.asarray(X_valueTrain, dtype=np.float64)
+Y_valueTrain = np.asarray(Y_valueTrain, dtype=np.float64)
+X_valueTest = np.asarray(X_valueTest, dtype=np.float64)
+Y_valueTest = np.asarray(Y_valueTest, dtype=np.float64)
+
+print("Our Data is finally uploaded!")
+
+def shuffle_The_Data(j, o_value, Num_ber=1):
+
+    Cou_nt = 0
+    X_value = []
+    Y_value = []
+    if len(j) != len(o_value):
+        return -1
+    while Cou_nt < num_ber:
+        ran_Num_ber = random.randint(0, len(X_valueTrain)-1)
+        X_value.append(X_valueTrain[ran_Num_ber])
+        Y_value.append(Y_valueTrain[ran_Num_ber])
+        Cou_nt += 1
+    Cou_nt = 0
+    for j in Y_value[0]:
+        if j == 1:
+            break
+        else:
+            Cou_nt += 1
+    return np.asarray(X_value), np.asarray(Y_value), Cou_nt
+
+class NN_Neu_ral_Network(object):
+    def __init__(self, input_Size, hidden_Size, output_value_Size, learning_Rate, epochs_value=500):
+        #parameters
+        self.input_Size = input_Size
+        self.hidden_Size = hidden_Size
+        # self.hidden_Size2 = hidden_Size2
+        self.output_value_Size = output_value_Size
+        self.learning_Rate = learning_Rate
+
+        self.RHO_HAT = 0.0                         # Average Activation: This is just initally, has to be changed after a full pass through
+        self.rho_value = 0                            # That inital inputs activation of the hidden neuron
+
+        self.value_of_alpha = 0.5                        # Used with momentum
+        self.value_of_alpha1 = 0
+        self.value_of_alpha2 = 0
+
+        self.beta_value = 2                           # This is important for  sparseness calculation
+        self.lambda_Value = 0.0005               # This function is used for regularization calculation; regularization is subtracted weight decay formula
+        self.epochs_value = 0
+        self.avg_of_Activation_time = np.zeros(shape=(1,150))
+        # (1 - hit rate) is calculated every 10 epochs_value, then the graph is calculated. Get it and save error rate values
+        self.hitRate = []
+
+        #weights is tabulated here
+        self.W1_value = np.random.randn(self.input_Size, self.hidden_Size) * np.sqrt(1/(self.input_Size+self.hidden_Size)) # input to hidden layer's weight matrix are tabulated here
+        self.W2_value = np.random.randn(self.hidden_Size, self.output_value_Size) * np.sqrt(1/(self.hidden_Size+self.output_value_Size))
+
+    def forward(self, X_value):
+        # Our network's forward propagation is tabulated here
+        self.z1 = np.dot(X_value, self.W1_value) # set of 3x2 weights's dot product of X is calculated here
+        self.a1 = self.sigmoid(self.z1) # activation function is found here
+        # self.avg_of_Activation_time += self.a1
+
+        self.z2 = np.dot(self.a1, self.W2_value)
+        o_value = self.sigmoid(self.z2) # final activation function
+        return o_value
+
+    def activation(self, X_value):
+        NeuralN.forward(X_value)
+        rho_value = self.a1
+        return rho_value
+
+    def KL_cal_divergence(self, X_value):
+        try:
+            rho_value = sum(sum((self.activation(X_value))))
+            rho_value = float(rho_value)
+        except:
+            rho_value = sum(self.activation(X_value))
+            rho_value = float(rho_value)
+
+        try:
+            a = rho_value * math.log(rho_value/self.RHO_HAT, 10)
+        except:
+            a = self.RHO_HAT
+        try:
+            b = (1 - rho_value) * math.log((1-rho_value)/(1-self.RHO_HAT), 10)
+        except:
+            b = a
+        return a + b
+
+    def weight_decay(self, X_value):
+        return sum(sum(np.square(self.W1_value))) + sum(sum(np.square(self.W2_value)))
+
+    def sigmoid(self, s):
+        # try:
+        s = np.array(s, dtype=np.float64)
+        return 1.0 / (1.0 + np.exp(-s))
+        # except:
+        #     return 1.0 / (1.0 + expit(-s))
+
+    def sigmoidPrime(self, s):
+        return self.sigmoid(s) * (1 - self.sigmoid(s))
+
+    def backward(self, X_value, Y_value, o_value):
+        # backward propgate through the network
+        self.o_error = Y_value - o_value # error in output_value
+        self.o_delta = self.o_error*self.sigmoidPrime(o_value) # applying derivative of sigmoid to error
+
+        self.z2_error = self.o_delta.dot(self.W2_value.T) # z2 error: how much our hidden layer weights contributed to output_value error
+        self.z2_delta = self.z2_error*self.sigmoidPrime(self.a1) # applying derivative of sigmoid to z2 error
+
+        rho_valueFunc = (1-self.activation(X_value) / (1 - self.RHO_HAT)) - (self.activation(X_value)/self.RHO_HAT)
+
+
+
+        dW1_value = self.learning_Rate * X_value.T.dot(self.z2_delta) #- self.lambda_Value * self.W1_value
+        dW2_value = self.learning_Rate * self.a1.T.dot(self.o_delta) #- self.lambda_Value * self.W2_value
+
+
+        if epochs_value > 1: # Weights Adjusted with momentum
+            self.W1_value += dW1_value + (self.value_of_alpha * self.value_of_alpha1)
+            self.W2_value += dW2_value + (self.value_of_alpha * self.value_of_alpha2)
+
+        self.value_of_alpha1 = dW1_value
+        self.value_of_alpha2 = dW2_value
+
+    def train_data (self, X_value, Y_value):
+        o_value = self.forward(X_value)
+        self.backward(X_value, Y_value, o_value)
+
+
+    def Error_calculation(self, X_value, Y_value):
+
+        Loss_value = np.square(X_value-Y_value)
+        Loss_value = np.sum(Loss_value) * (1.0/2.0)
+
+        Loss_value += self.beta_value * self.KL_cal_divergence(X_value)
+
+
+        return loss_cal
+
+
+    def Digit_Identified  (self, o):
+        npOutput = np.zeros(shape=len(o))
+        index = 0
+        for j in o:
+            maxVal = np.amax(j)
+            Cou_nt = 0
+            for a in j:
+                if a == maxVal:
+                    npOutput[index] = Cou_nt
+
+                Cou_nt += 1
+            index += 1
+        return npOutput
+
+    def cal_accuracy(self, Y_value, Y_valuehat):
+        # Gets the cal_accuracy of the output_value & compares the Y_hat value to Y_value, returns a value which is a number >= 1.00
+        Y_value = self.identifyDigit(Y_value)
+        Y_valuehat = self.identifyDigit(Y_valuehat)
+        acc = self.compareArray(Y_value, Y_valuehat)
+
+        if self.epochs_value % 10 == 0:
+            self.hitRate.append(1-self.compareArray(Y_value, Y_valuehat))
+            print(self.hitRate)
+        return acc
+
+    def compareArray(self, arr1, arr2):
+        # Returns cal_accuracy for one epoch
+        # This helps us determine our hit rate
+        length = len(arr1)
+        Cou_nt = 0
+        overall_Accuracy = 0
+        for j in range(length):
+            if arr1[j] == arr2[j]:
+                Cou_nt += 1
+
+        return Cou_nt/length
+
+    def save_NN(self):
+        np.savetxt('weights1_PE.txt', self.W1_value)
+        np.savetxt('weights2_PE.txt', self.W2_value)
+
+    def load_NN(self):
+        try:
+            self.W1_value = np.load('weights1_PE.npy')
+            self.W2_value = np.load('weights2_PE.npy')
+        except:
+            print("we cannot find any weights")
+
+    def test(self, X_value, Y_value):
+        o = self.forward(X_value)
+        return o
+
+    def initialize_Rho_Hat(self, X_valueTrain):
+        z = np.dot(X_valueTrain, self.W1_value)
+        a = self.sigmoid(z)
+        RHO_HAT = float(sum(sum(a))/len(X_valueTrain))
+        if self.RHO_HAT < .15 and self.RHO_HAT > 0.05:
+            self.RHO_HAT = self.RHO_HAT
+        else:
+            self.RHO_HAT = RHO_HAT
+
+    def loss_cal(self, X_value, Y_value):
+        loss_cal = np.square(X_value-Y_value)
+        loss_cal = np.sum(loss_cal) * (1.0/2.0)
+
+        sum_is_Set = 0
+        for j in range(len(X_value)):
+            sum_is_Set += self.KL_cal_divergence(X_value[j])
+        loss_cal += self.beta_value * sum_is_Set
+
+        # loss_cal += self.lambda_Value/2 * self.weight_decay(X_value)
+        return absolut(loss_cal)
+
+def graph_Error_Rate(hitRate, epochs_value):
+    X_value = np.linspace(0, epochs_value, num_ber=len(hitRate))
+    Y_value = np.asarray(hitRate)
+    plt.figure(2)
+    plt.plot(X_value, Y_value, '+', color='red')
+    plt.xlabel('Epoch Number')
+    plt.ylabel('Error Rate')
+    plt.title('Error Rate Over Time')
+    plt.savefig('AEErrorRate.png')
+
+def graph_Rho_Hat(RHO_HAT, epochs_value):
+    X_value = np.linspace(0, epochs_value, num_ber=len(RHO_HAT))
+    # Y_value = np.asarray(RHO_HAT)
+    Y_value = RHO_HAT
+    print(Y_value)
+    plt.figure(3)
+    plt.plot(X_value, Y_value, '+', color='red')
+    plt.xlabel('Epoch Number')
+    plt.ylabel('RHO_HAT')
+    plt.title('Rho Hat Over Time')
+    plt.savefig('RHO_HAT.png')
+
+def plot_Error_p_Number(training, test):
+    X_value = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    Y_value1 = training
+    Y_value2 = test
+    ax = plt.subplot(111)
+    ax.bar(X_value-0.1, Y_value1, width=0.2, color='b', align='center')
+    ax.bar(X_value+0.1, Y_value2, width=0.2, color='g', align='center')
+    plt.xlim(-0.5, 9.5)
+    plt.gca().legend(('Training_data','Test_data'))
+    plt.xlabel('The Label data of MNIST')
+    plt.ylabel('The Error is calculated in Average')
+    plt.title('Error for Testing & Training Set Per Number')
+    plt.figure(1)
+    plt.savefig('Auto_Encoder_Error.png')
+    plt.show()
+
+
+inputs_value = 784
+hidden1 = 150
+output_value = 784
+learning_Rate = 0.05
+epochs_value = 1000
+
+NeuralN = NN_Neu_ral_Network(inputs_value, hidden1, output_value, learning_Rate, epochs_value)
+NeuralN.initialize_Rho_Hat(X_valueTrain)
+
+
+Loss_Over_time = np.zeros(shape=(epochs_value//10))
+Over_Time_Rho_Hat = np.zeros(shape=(epochs_value//10))
+
+# Training and testing stuff
+while NeuralN.epochs_value < epochs_value: # and percentChange > 0.01:
+    start_the_time = datetime.now()
+    NeuralN.initialize_Rho_Hat(X_valueTrain)
+    print("\nEpoch #" + str(NeuralN.epochs_value))
+    print("Loss: \t\t" + str(NeuralN.loss_cal(X_valueTrain, NeuralN.forward(X_valueTrain))))
+    print("RHO_HAT: \t%f" % NeuralN.RHO_HAT)
+    NeuralN.train_data(X_valueTrain, X_valueTrain)
+
+    if NeuralN.epochs_value % 10 == 0:
+        Loss_Over_time[NeuralN.epochs_value//10] = float(NeuralN.loss_cal(X_valueTrain, NeuralN.forward(X_valueTrain)))
+        Over_Time_Rho_Hat[NeuralN.epochs_value//10] = float(NeuralN.RHO_HAT)
+        print("Loss list: " + str(Loss_Over_time))
+        print("RHO_HAT List: " + str(Over_Time_Rho_Hat))
+        
+
+
+    print("Epoch %s measured %s seconds.\n" % (NeuralN.epochs_value, datetime.now()-start_the_time))
+    NeuralN.epochs_value += 1
+
+
+
+Testing_Loss = np.zeros(shape=(2,10), dtype=float)
+# test data is  calculated by running here & record
+for j in range(len(X_valueTest)):
+    Y_value = 0
+    for j in Y_valueTest[j]:
+        if j == 1:
+            break
+        else:
+            Y_value += 1
+
+    loss_cal = NeuralN.Error_calculation(X_valueTest[j], NeuralN.forward(X_valueTest[j]))
+    Testing_Loss[0][Y_value] += loss_cal
+    Testing_Loss[1][Y_value] += 1
+
+Test_Loss_overall = np.zeros(shape=(10), dtype=float)
+train_Loss_cal = np.zeros(shape=(10), dtype=float)
+for j in range(10):
+    Test_Loss_overall[j] = Testing_Loss[0][j]/Testing_Loss[1][j]
+    train_Loss_cal[j] = average_Loss[0][j]/average_Loss[1][j]
+
+
+graph_Error_Rate(Loss_Over_time, epochs_value)
+graph_Rho_Hat(Over_Time_Rho_Hat, epochs_value)
